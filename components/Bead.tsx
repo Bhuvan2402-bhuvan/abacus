@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { triggerHapticFeedback } from '../utils';
 
 interface BeadProps {
   onClick: () => void;
@@ -22,6 +23,7 @@ const Bead: React.FC<BeadProps> = ({ onClick, onDragStart, onDragEnd, isActive, 
   const handleClick = () => {
     onClick(); // Propagate the click to the parent component to update state.
     triggerActivationEffect();
+    triggerHapticFeedback(); // Trigger haptic feedback on click
   };
 
   const handleInternalDragEnd = () => {
@@ -29,6 +31,7 @@ const Bead: React.FC<BeadProps> = ({ onClick, onDragStart, onDragEnd, isActive, 
     // We provide feedback for the drag action ending. This will fire
     // whether the drop was on a valid target or not, giving consistent feedback.
     triggerActivationEffect();
+    triggerHapticFeedback(); // Trigger haptic feedback on drag end (drop)
   };
 
   // Base classes for the bead. The transition duration is set to 300ms for a snappier feel.

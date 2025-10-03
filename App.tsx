@@ -284,7 +284,7 @@ const App: React.FC = () => {
       <div className="min-h-screen bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 flex flex-col items-center justify-center p-4 font-sans">
         <div className="w-full max-w-5xl mx-auto">
           <header className="text-center mb-6">
-            <h1 className="text-4xl md:text-5xl font-bold text-amber-800 dark:text-amber-300">Interactive Abacus</h1>
+            <h1 className="text-4xl md:text-5xl font-bold text-amber-800 dark:text-amber-300">Abacus Simulator</h1>
             <p className="text-lg text-gray-600 dark:text-gray-400 mt-2">A digital Soroban for modern calculations</p>
           </header>
           
@@ -412,7 +412,7 @@ const App: React.FC = () => {
               </div>
           </div>
            <footer className="text-center mt-8 text-gray-500 dark:text-gray-400">
-              <p>Drag a bead or click it to move it. Earthly beads (bottom) are worth 1, heavenly beads (top) are worth 5.</p>
+              <p>App Designed by Bhuvan Mohan</p>
           </footer>
         </div>
       </div>

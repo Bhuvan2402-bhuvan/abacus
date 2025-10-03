@@ -1,5 +1,5 @@
 {
-  "name": "Interactive Abacus Tool",
+  "name": "Abacus Simulator",
   "description": "A fully functional digital abacus (Soroban style) built with React and Tailwind CSS. Users can manipulate beads to represent numbers and perform calculations, with real-time updates of the numerical value.",
   "requestFramePermissions": []
 }
