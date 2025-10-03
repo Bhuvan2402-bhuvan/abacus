@@ -16,8 +16,8 @@ const CURRENT_USER_STORAGE_KEY = 'abacusCurrentUser';
 const USERS = [
   { username: 'admin1', password: 'Bhuvan@1122', role: 'admin' },
   { username: 'admin2', password: 'Vani@1122', role: 'admin' },
-  // Programmatically generate 20 student users
-  ...Array.from({ length: 20 }, (_, i) => ({
+  // Programmatically generate 50 student users
+  ...Array.from({ length: 50 }, (_, i) => ({
     username: `student ${i + 1}`,
     password: `student ${i + 1}`,
     role: 'user',
