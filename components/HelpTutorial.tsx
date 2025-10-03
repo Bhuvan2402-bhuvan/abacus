@@ -69,7 +69,7 @@ const HelpTutorial: React.FC<HelpTutorialProps> = ({ onClose }) => {
             </p>
              <ul className="list-disc list-inside mt-2 space-y-1 text-gray-600 dark:text-gray-400">
               <li><strong className="font-semibold">Click:</strong> Simply click on any bead to move it towards or away from the reckoning bar.</li>
-              <li><strong className="font-semibold">Drag and Drop:</strong> Click and hold a bead, then drag it to a new position on its rod to move it.</li>
+              <li><strong className="font-semibold">Drag and Drop:</strong> You can also drag a bead on its rod and release it. This has the same effect as clicking the bead.</li>
             </ul>
           </section>
 

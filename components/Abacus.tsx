@@ -6,11 +6,15 @@ interface AbacusProps {
   rods: RodState[];
   onBeadClick: (rodIndex: number, beadType: 'heavenly' | 'earthly', beadIndex: number) => void;
   disabled?: boolean;
+  isCorrect?: boolean;
 }
 
-const Abacus: React.FC<AbacusProps> = ({ rods, onBeadClick, disabled = false }) => {
+const Abacus: React.FC<AbacusProps> = ({ rods, onBeadClick, disabled = false, isCorrect = false }) => {
+  const containerClasses = `bg-yellow-800 p-4 sm:p-6 border-4 border-yellow-900 rounded-2xl shadow-lg relative select-none transition-all duration-300`;
+  const correctGlow = isCorrect ? 'ring-4 ring-green-500 dark:ring-green-400' : '';
+
   return (
-    <div className="bg-yellow-800 p-4 sm:p-6 border-4 border-yellow-900 rounded-2xl shadow-lg relative select-none">
+    <div className={`${containerClasses} ${correctGlow}`}>
       {/* Overlay when disabled */}
       {disabled && <div className="absolute inset-0 bg-black/30 z-20 rounded-xl cursor-not-allowed"></div>}
 
