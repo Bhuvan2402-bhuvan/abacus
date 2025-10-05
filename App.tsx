@@ -1,19 +1,23 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { RodState, CurrentUser, UserRole } from './types';
+import { RodState, CurrentUser, UserRole, SavedState } from './types';
 import Abacus from './components/Abacus';
 import HelpTutorial from './components/HelpTutorial';
 import Levels from './components/Levels';
 import Training from './components/Training';
 import AdminView from './components/AdminView';
 import Auth from './components/Auth';
+import ChangePassword from './components/ChangePassword';
+import SaveLoadState from './components/SaveLoadState';
 import { Level } from './levels';
+import { calculateAbacusValue } from './utils';
 
 const NUM_RODS = 13;
 const COMPLETED_LEVELS_STORAGE_KEY_PREFIX = 'abacusCompletedLevels_';
+const SAVED_STATES_STORAGE_KEY_PREFIX = 'abacusSavedStates_';
 const CURRENT_USER_STORAGE_KEY = 'abacusCurrentUser';
 
 // --- User Data ---
-const USERS = [
+const INITIAL_USERS = [
   { username: 'admin1', password: 'Bhuvan@1122', role: 'admin' },
   { username: 'admin2', password: 'Vani@1122', role: 'admin' },
   // Programmatically generate 50 student users
@@ -67,10 +71,14 @@ const App: React.FC = () => {
   const [activeLevel, setActiveLevel] = useState<Level | null>(null);
   const [currentProblemIndex, setCurrentProblemIndex] = useState(0);
   const [completedLevels, setCompletedLevels] = useState<string[]>([]);
+  const [savedStates, setSavedStates] = useState<SavedState[]>([]);
   
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [isSaveLoadOpen, setIsSaveLoadOpen] = useState(false);
   const [theme, setTheme] = useState<Theme>('light');
   
+  const [users, setUsers] = useState(INITIAL_USERS);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -78,7 +86,7 @@ const App: React.FC = () => {
 
   const loadAllUsersProgress = useCallback(() => {
     const progressData: { [username: string]: string[] } = {};
-    USERS.forEach(user => {
+    users.forEach(user => {
       if (user.role === 'user') { // Only load progress for students
         try {
           const savedLevels = localStorage.getItem(`${COMPLETED_LEVELS_STORAGE_KEY_PREFIX}${user.username}`);
@@ -90,7 +98,7 @@ const App: React.FC = () => {
       }
     });
     setAllUsersProgress(progressData);
-  }, []);
+  }, [users]);
 
   // Load state from localStorage on initial render
   useEffect(() => {
@@ -110,20 +118,22 @@ const App: React.FC = () => {
       console.error("Could not load user from localStorage", error);
     }
 
-    // If a user was loaded, load their progress
+    // If a user was loaded, load their progress and saved states
     if (initialUser && initialUser.role === 'user') {
        try {
         const savedLevels = localStorage.getItem(`${COMPLETED_LEVELS_STORAGE_KEY_PREFIX}${initialUser.username}`);
-        if (savedLevels) {
-          setCompletedLevels(JSON.parse(savedLevels));
-        }
+        if (savedLevels) setCompletedLevels(JSON.parse(savedLevels));
+        
+        const savedSt = localStorage.getItem(`${SAVED_STATES_STORAGE_KEY_PREFIX}${initialUser.username}`);
+        if (savedSt) setSavedStates(JSON.parse(savedSt));
+
       } catch (error) {
-        console.error("Could not load progress for user from localStorage", error);
+        console.error("Could not load user data from localStorage", error);
       }
     }
   }, [loadAllUsersProgress]);
 
-  // Save completed levels to localStorage whenever they change for the current user
+  // Save data to localStorage whenever they change for the current user
   useEffect(() => {
     if (currentUser && currentUser.role === 'user') {
       try {
@@ -131,11 +141,15 @@ const App: React.FC = () => {
           `${COMPLETED_LEVELS_STORAGE_KEY_PREFIX}${currentUser.username}`,
           JSON.stringify(completedLevels)
         );
+        localStorage.setItem(
+          `${SAVED_STATES_STORAGE_KEY_PREFIX}${currentUser.username}`,
+          JSON.stringify(savedStates)
+        );
       } catch (error) {
-        console.error("Could not save completed levels to localStorage", error);
+        console.error("Could not save data to localStorage", error);
       }
     }
-  }, [completedLevels, currentUser]);
+  }, [completedLevels, savedStates, currentUser]);
 
   useEffect(() => {
     setVisualRods(logicalRods);
@@ -168,22 +182,9 @@ const App: React.FC = () => {
     return newRods;
   };
 
-  const calculateValue = useCallback((): bigint => {
-    if (!logicalRods) return 0n;
-    let total = 0n;
-    let placeValue = 1n;
-    for (let i = logicalRods.length - 1; i >= 0; i--) {
-      const rod = logicalRods[i];
-      const rodValue = BigInt((rod.heavenlyBeadActive ? 5 : 0) + rod.earthlyBeadsActive);
-      total += rodValue * placeValue;
-      placeValue *= 10n;
-    }
-    return total;
-  }, [logicalRods]);
-
   useEffect(() => {
-    setDisplayValue(calculateValue());
-  }, [logicalRods, calculateValue]);
+    setDisplayValue(calculateAbacusValue(logicalRods));
+  }, [logicalRods]);
   
   const animateStateTransition = useCallback(async (
     targetRods: RodState[], 
@@ -226,7 +227,7 @@ const App: React.FC = () => {
   };
   
   const handleUndo = () => { if (currentStep > 0) setCurrentStep(s => s - 1); };
-  const handleRedo = () => { if (currentStep < history.length - 1) setCurrentStep(s => s + 1); };
+  const handleRedo = () => { if (currentStep < history.length - 1) setCurrentStep(s => s - 1); };
   
   const handleCalculate = () => {
     if (isAnimating) return;
@@ -344,7 +345,7 @@ const App: React.FC = () => {
   };
 
   const handleLogin = (user: string, pass: string): CurrentUser | null => {
-    const foundUser = USERS.find(u => u.username === user && u.password === pass);
+    const foundUser = users.find(u => u.username === user && u.password === pass);
     if (foundUser) {
         return { username: foundUser.username, role: foundUser.role as UserRole };
     }
@@ -359,10 +360,13 @@ const App: React.FC = () => {
         if (loggedInUser.role === 'user') {
           const savedLevels = localStorage.getItem(`${COMPLETED_LEVELS_STORAGE_KEY_PREFIX}${loggedInUser.username}`);
           setCompletedLevels(savedLevels ? JSON.parse(savedLevels) : []);
+          const savedSt = localStorage.getItem(`${SAVED_STATES_STORAGE_KEY_PREFIX}${loggedInUser.username}`);
+          setSavedStates(savedSt ? JSON.parse(savedSt) : []);
         }
       } catch (error) {
         console.error("Could not access localStorage", error);
         setCompletedLevels([]);
+        setSavedStates([]);
       }
       setCurrentUser(loggedInUser);
       setIsAuthenticated(true);
@@ -382,13 +386,77 @@ const App: React.FC = () => {
     setCurrentUser(null);
     setIsAuthenticated(false);
     setLoginError(null);
-    setCompletedLevels([]); // Clear progress from state
-    setAllUsersProgress({}); // Clear admin data
+    setCompletedLevels([]);
+    setSavedStates([]);
+    setAllUsersProgress({});
     setMainView('levels');
     try {
       localStorage.removeItem(CURRENT_USER_STORAGE_KEY);
     } catch (error) {
       console.error("Could not remove current user from localStorage", error);
+    }
+  };
+
+  const handleChangePassword = (oldPass: string, newPass: string): { success: boolean; message: string } => {
+    if (!currentUser) {
+        return { success: false, message: 'No user is currently logged in.' };
+    }
+    const userIndex = users.findIndex(u => u.username === currentUser.username);
+    if (userIndex === -1) {
+        return { success: false, message: 'Current user not found in the user list.' };
+    }
+    if (users[userIndex].password !== oldPass) {
+        return { success: false, message: 'The current password you entered is incorrect.' };
+    }
+    const updatedUsers = [...users];
+    updatedUsers[userIndex] = { ...updatedUsers[userIndex], password: newPass };
+    setUsers(updatedUsers);
+    return { success: true, message: 'Password successfully updated!' };
+  };
+
+  const handleAdminPasswordReset = (username: string): string => {
+    const newPass = Math.random().toString(36).slice(2, 10); 
+    const userIndex = users.findIndex(u => u.username === username);
+    if (userIndex !== -1) {
+        const updatedUsers = [...users];
+        updatedUsers[userIndex] = { ...updatedUsers[userIndex], password: newPass };
+        setUsers(updatedUsers);
+    }
+    return newPass;
+  };
+
+  const handleSaveState = (name: string): { success: boolean; message: string } => {
+    if (!name.trim()) {
+      return { success: false, message: "State name cannot be empty." };
+    }
+    const existingIndex = savedStates.findIndex(s => s.name.toLowerCase() === name.toLowerCase());
+    if (existingIndex !== -1) {
+      if (!window.confirm(`A state named "${name}" already exists. Do you want to overwrite it?`)) {
+        return { success: false, message: "Save operation cancelled." };
+      }
+    }
+    const newState: SavedState = { name, rods: logicalRods };
+    let newStates = [...savedStates];
+    if (existingIndex !== -1) {
+      newStates[existingIndex] = newState;
+    } else {
+      newStates.push(newState);
+    }
+    newStates.sort((a, b) => a.name.localeCompare(b.name));
+    setSavedStates(newStates);
+    return { success: true, message: `State "${name}" saved successfully.` };
+  };
+
+  const handleLoadState = (rods: RodState[]) => {
+    animateStateTransition(rods, { updateHistory: 'reset' });
+    setFeedback({ message: 'State loaded successfully!', type: 'info' });
+    setTimeout(() => setFeedback(null), 2000);
+    setIsSaveLoadOpen(false);
+  };
+  
+  const handleDeleteState = (name: string) => {
+    if (window.confirm(`Are you sure you want to delete the state named "${name}"? This action cannot be undone.`)) {
+      setSavedStates(prevStates => prevStates.filter(s => s.name !== name));
     }
   };
 
@@ -430,12 +498,20 @@ const App: React.FC = () => {
                 <p className="text-gray-700 dark:text-gray-300">
                   Welcome, <strong className="font-semibold capitalize">{currentUser.username}</strong>!
                 </p>
-                <button 
-                  onClick={handleLogout}
-                  className="text-sm text-red-600 dark:text-red-400 hover:underline focus:outline-none focus:ring-2 focus:ring-red-500 rounded"
-                >
-                  Logout
-                </button>
+                <div className="flex gap-3 justify-end mt-1">
+                  <button 
+                    onClick={() => setIsChangePasswordOpen(true)}
+                    className="text-sm text-blue-600 dark:text-blue-400 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                  >
+                    Change Password
+                  </button>
+                  <button 
+                    onClick={handleLogout}
+                    className="text-sm text-red-600 dark:text-red-400 hover:underline focus:outline-none focus:ring-2 focus:ring-red-500 rounded"
+                  >
+                    Logout
+                  </button>
+                </div>
               </div>
             )}
           </header>
@@ -484,6 +560,13 @@ const App: React.FC = () => {
                         {feedback && <p className={`text-lg font-semibold p-2 rounded-md transition-colors ${getFeedbackColorClasses()}`} role="alert">{feedback.message}</p>}
                     </div>
                   )}
+                  {appMode === 'free' && feedback?.type === 'info' && (
+                     <div className="bg-blue-100 dark:bg-gray-700 p-4 rounded-lg shadow-inner w-full max-w-2xl mx-auto text-center">
+                        <p className="text-lg font-medium text-blue-800 dark:text-blue-200" role="alert">
+                            {feedback.message}
+                        </p>
+                     </div>
+                  )}
               </div>
 
                <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm ring-1 ring-inset ring-gray-200 dark:ring-gray-700/50 shadow-2xl rounded-full p-3 w-full max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
@@ -513,7 +596,8 @@ const App: React.FC = () => {
                           <button onClick={handleUndo} disabled={!isInteractive || !canUndo} className="w-10 h-10 flex items-center justify-center bg-white dark:bg-gray-700 rounded-full hover:bg-gray-100 dark:hover:bg-gray-600 shadow-sm disabled:opacity-50" title="Undo"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" /></svg></button>
                           <button onClick={handleRedo} disabled={!isInteractive || !canRedo} className="w-10 h-10 flex items-center justify-center bg-white dark:bg-gray-700 rounded-full hover:bg-gray-100 dark:hover:bg-gray-600 shadow-sm disabled:opacity-50" title="Redo"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 15l6-6m0 0l-6-6m6 6H9a6 6 0 000 12h3" /></svg></button>
                       </div>
-                      <button onClick={toggleTheme} className="w-11 h-11 flex items-center justify-center bg-gray-200 dark:bg-gray-700 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 shadow-sm" title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>{theme === 'light' ? <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" /></svg> : <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.707.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 100 2h1z" clipRule="evenodd" /></svg>}</button>
+                      <button onClick={() => setIsSaveLoadOpen(true)} className="w-11 h-11 flex items-center justify-center bg-gray-200 dark:bg-gray-700 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 shadow-sm" title="Save / Load State" disabled={!isInteractive}><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v2a2 2 0 01-2 2H7a2 2 0 01-2-2V4zm3 0a1 1 0 00-1 1v1a1 1 0 102 0V5a1 1 0 00-1-1z" /><path d="M3 9a2 2 0 012-2h10a2 2 0 012 2v7a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /></svg></button>
+                      <button onClick={toggleTheme} className="w-11 h-11 flex items-center justify-center bg-gray-200 dark:bg-gray-700 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 shadow-sm" title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" /></svg></button>
                       <button onClick={() => setIsHelpOpen(true)} className="w-11 h-11 flex items-center justify-center bg-green-500 text-white rounded-full hover:bg-green-600 shadow-sm" title="Help"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" /></svg></button>
                       <button onClick={handleReset} className="w-11 h-11 flex items-center justify-center bg-red-500 text-white rounded-full hover:bg-red-600 shadow-sm" title="Reset" disabled={!isInteractive}><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h5M4 4l7 7M20 20v-5h-5M20 20l-7-7" /></svg></button>
                   </div>
@@ -527,6 +611,7 @@ const App: React.FC = () => {
             <AdminView
               currentUser={currentUser}
               allUsersProgress={allUsersProgress}
+              onResetPassword={handleAdminPasswordReset}
             />
           )}
 
@@ -537,6 +622,15 @@ const App: React.FC = () => {
         </div>
       </div>
       {isHelpOpen && <HelpTutorial onClose={() => setIsHelpOpen(false)} />}
+      {isChangePasswordOpen && <ChangePassword onClose={() => setIsChangePasswordOpen(false)} onChangePassword={handleChangePassword} />}
+      {isSaveLoadOpen && <SaveLoadState 
+          onClose={() => setIsSaveLoadOpen(false)} 
+          savedStates={savedStates}
+          currentRods={logicalRods}
+          onSave={handleSaveState}
+          onLoad={handleLoadState}
+          onDelete={handleDeleteState}
+        />}
     </>
   );
 };

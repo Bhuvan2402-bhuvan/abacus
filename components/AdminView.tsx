@@ -5,13 +5,14 @@ import { CurrentUser } from '../types';
 interface AdminViewProps {
   currentUser: CurrentUser | null;
   allUsersProgress: { [username: string]: string[] };
+  onResetPassword: (username: string) => string;
 }
 
-const AdminView: React.FC<AdminViewProps> = ({ currentUser, allUsersProgress }) => {
+const AdminView: React.FC<AdminViewProps> = ({ currentUser, allUsersProgress, onResetPassword }) => {
   const isAdmin = currentUser?.role === 'admin';
 
   if (isAdmin) {
-    return <AdminDashboard allUsersProgress={allUsersProgress} />;
+    return <AdminDashboard allUsersProgress={allUsersProgress} onResetPassword={onResetPassword} />;
   }
 
   return (

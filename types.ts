@@ -15,7 +15,7 @@ export interface TrainingStep {
 }
 
 export interface TrainingLevel {
-  id: number;
+  id: number | string;
   title: string;
   description: string;
   category: string;
@@ -34,4 +34,11 @@ export type UserRole = 'admin' | 'user';
 export interface CurrentUser {
   username: string;
   role: UserRole;
+}
+
+// ---- New type for Saved States ----
+
+export interface SavedState {
+  name: string;
+  rods: RodState[];
 }
